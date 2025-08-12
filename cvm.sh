@@ -30,7 +30,7 @@ trap 'printf "\nScript interrupted by user. Please remove any unfinished downloa
 #H#   --update             Downloads and selects the latest version
 #H#   --use <version>      Selects a locally available version
 #H#   --active             Shows the currently selected version
-#H#   --remove <version>   Removes a locally available version
+#H#   --remove <version...>  Removes one or more locally available versions
 #H#   --install            Adds an alias `cursor` and downloads the latest version
 #H#   --uninstall          Removes the Cursor version manager directory and alias
 #H#   --update-script      Updates the (cvm.sh) script to the latest version
@@ -584,31 +584,38 @@ case "$1" in
     ;;
   --remove)
     if [ -z "${2:-}" ]; then
-      echo "Usage: $0 --remove <version>"
+      echo "Usage: $0 --remove <version1> <version2> <version3>..."
       exit 1
     fi
 
-    version=$2
-    exitIfVersionNotInstalled "$version"
+    shift # Skip the --remove argument
+    versions=("$@")
     
-    # Check if this version is currently active
-    if [ -L "$CURSOR_DIR/active" ]; then
-      activeVersion=$(getActiveVersion)
-      if [ "$activeVersion" = "$version" ]; then
-        echo "Removing active version $version..."
-        rm "$CURSOR_DIR/active"
-        print_color "$GREEN" "✓ Removed active symlink"
+    for version in "${versions[@]}"; do
+      # Check if version is installed
+      if [ ! -f "$DOWNLOADS_DIR/cursor-$version.AppImage" ]; then
+        print_color "$ORANGE" "! Version $version not found locally. Skipping..."
+        continue
       fi
-    fi
+      
+      # Check if this version is currently active
+      if [ -L "$CURSOR_DIR/active" ]; then
+        activeVersion=$(getActiveVersion)
+        if [ "$activeVersion" = "$version" ]; then
+          echo "Removing active version $version..."
+          rm "$CURSOR_DIR/active"
+          print_color "$GREEN" "✓ Removed active symlink"
+        fi
+      fi
 
-    # Remove the AppImage file
-    echo "Removing AppImage for version $version..."
-    if rm "$DOWNLOADS_DIR/cursor-$version.AppImage"; then
-      print_color "$GREEN" "✓ Successfully removed version $version"
-    else
-      print_color "$ORANGE" "! Failed to remove version $version"
-      exit 1
-    fi
+      # Remove the AppImage file
+      echo "Removing AppImage for version $version..."
+      if rm "$DOWNLOADS_DIR/cursor-$version.AppImage"; then
+        print_color "$GREEN" "✓ Successfully removed version $version"
+      else
+        print_color "$ORANGE" "! Failed to remove version $version"
+      fi
+    done
     ;;
   --install)
     installCVM
