@@ -3,6 +3,9 @@ bump-version:
 	@echo "Bumping version to $(VERSION)"
 	@sed -i 's/CVM_VERSION=".*"/CVM_VERSION="$(VERSION)"/' cvm.sh
 	@sed -i 's|/releases/download/v[^/]*/cvm.sh|/releases/download/v$(VERSION)/cvm.sh|g' README.md
+	@git add cvm.sh README.md
+	@git commit -m "Bump version to $(VERSION)"
+	@git push
 	@echo "CVM version bumped to $(VERSION)"
 
 release:
