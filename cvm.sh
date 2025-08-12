@@ -70,7 +70,7 @@ print_color() {
 
 getLatestScriptVersion() {
   # Fetch latest release version from GitHub API
-  latest_version=$(wget -qO- "$GITHUB_API_URL" | jq -r '.tag_name' 2>/dev/null)
+  latest_version=$(wget -qO- "$GITHUB_API_URL" | jq -r '.tag_name' 2>/dev/null | sed 's/^v//')
   if [ -n "$latest_version" ]; then
     echo "$latest_version"
     return 0
