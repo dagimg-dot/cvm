@@ -23,14 +23,14 @@ eget dagimg-dot/cvm --to $HOME/.local/bin
 > $HOME/.local/bin/cvm should be in your PATH
 
 ```bash
-curl -L -o $HOME/.local/bin/cvm https://github.com/dagimg-dot/cvm/releases/download/v1.0.0/cvm.sh
+curl -L -o $HOME/.local/bin/cvm https://github.com/dagimg-dot/cvm/releases/download/v1.1.0/cvm.sh
 chmod +x $HOME/.local/bin/cvm
 ```
 
 #### Option 3: Use it as a local **script**
 
 ```bash
-curl -L -o cvm.sh https://github.com/dagimg-dot/cvm/releases/download/v1.0.0/cvm.sh
+curl -L -o cvm.sh https://github.com/dagimg-dot/cvm/releases/download/v1.1.0/cvm.sh
 chmod +x cvm.sh
 ```
 
