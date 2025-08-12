@@ -109,12 +109,16 @@ getPlatform() {
       echo "linux-arm64"
       ;;
     *)
-      echo "Unsupported architecture: $architecture"
+      echo "Error: Unsupported architecture: $architecture" >&2
+      return 1
       ;;
   esac
 }
 
-platform=$(getPlatform)
+# Set platform and fail fast if unsupported
+if ! platform=$(getPlatform); then
+  exit 1
+fi
 
 getRemoteVersions() {
   getVersionHistory | \
@@ -150,6 +154,13 @@ downloadVersion() {
     getVersionHistory | \
       jq -r --arg v "$version" --arg platform "$platform" '.versions[] | select(.version == $v and .platforms[$platform] != null) | .platforms[$platform]'
   )
+
+  if [ -z "$url" ] || [ "$url" = "null" ]; then
+    echo "Version $version is not available for platform $platform." >&2
+    echo "Use \`cvm --list-remote\` to see available versions." >&2
+    return 1
+  fi
+
   echo "Downloading Cursor $version..."
   wget -O "$DOWNLOADS_DIR/$localFilename" "$url"
   chmod +x "$DOWNLOADS_DIR/$localFilename"
@@ -352,11 +363,10 @@ uninstallCVM() {
 }
 
 checkDependencies() {
-  mainShellPID="$$"
-  printf "sed\ngrep\njq\nfind\nwget\n" | while IFS= read -r program; do
-    if ! [ -x "$(command -v "$program")" ]; then
+  for program in sed grep jq find wget; do
+    if ! command -v "$program" >/dev/null 2>&1; then
       echo "Error: $program is not installed." >&2
-      kill -9 "$mainShellPID" 
+      exit 1
     fi
   done
 }
@@ -616,6 +626,15 @@ case "$1" in
         print_color "$ORANGE" "! Failed to remove version $version"
       fi
     done
+
+    # Post-remove guidance
+    if [ ! -L "$CURSOR_DIR/active" ]; then
+      if [ -n "$(ls -A "$DOWNLOADS_DIR" 2>/dev/null)" ]; then
+        echo "No active version selected. To activate one, run: $0 --use <version> (see \`$0 --list-local\`)."
+      else
+        echo "No Cursor versions installed."
+      fi
+    fi
     ;;
   --install)
     installCVM

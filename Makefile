@@ -1,6 +1,8 @@
+.PHONY: bump-version release
 bump-version:
 	@echo "Bumping version to $(VERSION)"
 	@sed -i 's/CVM_VERSION=".*"/CVM_VERSION="$(VERSION)"/' cvm.sh
+	@sed -i 's|/releases/download/v[^/]*/cvm.sh|/releases/download/v$(VERSION)/cvm.sh|g' README.md
 	@echo "CVM version bumped to $(VERSION)"
 
 release:

@@ -23,14 +23,14 @@ eget dagimg-dot/cvm --to $HOME/.local/bin
 > $HOME/.local/bin/cvm should be in your PATH
 
 ```bash
-curl -L -o $HOME/.local/bin/cvm https://github.com/dagimg-dot/cvm/releases/download/1.0.0/cvm.sh
+curl -L -o $HOME/.local/bin/cvm https://github.com/dagimg-dot/cvm/releases/download/v1.0.0/cvm.sh
 chmod +x $HOME/.local/bin/cvm
 ```
 
 #### Option 3: Use it as a local **script**
 
 ```bash
-curl -L -o cvm.sh https://github.com/dagimg-dot/cvm/releases/download/1.0.0/cvm.sh
+curl -L -o cvm.sh https://github.com/dagimg-dot/cvm/releases/download/v1.0.0/cvm.sh
 chmod +x cvm.sh
 ```
 
@@ -50,6 +50,7 @@ Examples:
   cvm --version
   cvm --list-local
   cvm --use 1.4.4
+  cvm --remove 1.2.3 1.3.0 1.4.0
 
 Notice*:
   The AppImage files are downloaded from the official Cursor releases.
@@ -62,7 +63,7 @@ Options:
   --update             Downloads and selects the latest version
   --use <version>      Selects a locally available version
   --active             Shows the currently selected version
-  --remove <version>   Removes a locally available version
+  --remove <version...>  Removes one or more locally available versions
   --install            Adds an alias `cursor` and downloads the latest version
   --uninstall          Removes the Cursor version manager directory and alias
   --update-script      Updates the (cvm.sh) script to the latest version
