@@ -32,19 +32,20 @@ chmod +x $HOME/.local/bin/cvm
 ```bash
 curl -L -o cvm.sh https://github.com/dagimg-dot/cvm/releases/download/v1.1.0/cvm.sh
 chmod +x cvm.sh
-```
 
-#### Download cursor and add an alias to it
-```bash
-# system-wide
-cvm --install
-# local script
-./cvm.sh --install
+./cvm.sh --help
 ```
 
 ### Usage
 ```
 cvm.sh — Cursor version manager
+
+ ██████╗██╗   ██╗███╗   ███╗
+██╔════╝██║   ██║████╗ ████║
+██║     ██║   ██║██╔████╔██║
+██║     ╚██╗ ██╔╝██║╚██╔╝██║
+╚██████╗ ╚████╔╝ ██║ ╚═╝ ██║
+ ╚═════╝  ╚═══╝  ╚═╝     ╚═╝
 
 Examples:
   cvm --version
