@@ -25,16 +25,16 @@ trap 'printf "\nScript interrupted by user. Please remove any unfinished downloa
 #H#   The list of download sources can be found at https://github.com/oslook/cursor-ai-downloads
 #H#
 #H# Options:
-#H#   --list-local         Lists locally available versions
-#H#   --list-remote        Lists versions available for download
-#H#   --download <version> Downloads a version
-#H#   --update             Downloads and selects the latest version
-#H#   --use <version>      Selects a locally available version
-#H#   --active             Shows the currently selected version
-#H#   --remove <version...>  Removes one or more locally available versions
-#H#   --install [<version>] Adds an alias `cursor` and installs the latest version or specified version
-#H#   --uninstall          Removes the Cursor version manager directory and alias
-#H#   --update-script      Updates the (cvm.sh) script to the latest version
+#H#   -l --list-local      Lists locally available versions
+#H#   -L --list-remote     Lists versions available for download
+#H#   -d --download <version> Downloads a version
+#H#   -u --update          Downloads and selects the latest version
+#H#   -U --use <version>   Selects a locally available version
+#H#   -a --active          Shows the currently selected version
+#H#   -r --remove <version...>  Removes one or more locally available versions
+#H#   -i --install [<version>] Adds an alias `cursor` and installs the latest version or specified version
+#H#   -I --uninstall       Removes the Cursor version manager directory and alias
+#H#   -s --update-script   Updates the (cvm.sh) script to the latest version
 #H#   -v --version         Shows the current and latest versions for cvm.sh and Cursor
 #H#   -h --help            Shows this message
 
@@ -1077,7 +1077,7 @@ case "$1" in
     print_color "$ORANGE" "To install Cursor, run: $0 --install"
   fi
   ;;
---update)
+--update | -u)
   latestRemoteVersion=$(getLatestRemoteVersion)
 
   if [ ! -d "$DOWNLOADS_DIR" ] || [ -z "$(ls -A "$DOWNLOADS_DIR" 2>/dev/null)" ]; then
@@ -1107,7 +1107,7 @@ case "$1" in
     print_color "$GREEN" "Downloaded and switched to version $latestRemoteVersion."
   fi
   ;;
---list-local)
+--list-local | -l)
   local_versions_list=""
 
   case "$package_type" in
@@ -1155,13 +1155,13 @@ case "$1" in
     echo "  No versions installed."
   fi
   ;;
---list-remote)
+--list-remote | -L)
   echo "Remote versions:"
   while IFS= read -r version; do
     echo "  - $version"
   done < <(getRemoteVersions)
   ;;
---download)
+--download | -d)
   if [ -z "${2:-}" ]; then
     echo "Usage: $0 --download <version>"
     exit 1
@@ -1182,10 +1182,10 @@ case "$1" in
   fi
   echo "To select the downloaded version, run \`cvm --use $version\`"
   ;;
---active)
+--active | -a)
   getActiveVersion
   ;;
---use)
+--use | -U)
   if [ -z "${2:-}" ]; then
     echo "Usage: $0 --use <version>"
     exit 1
@@ -1195,7 +1195,7 @@ case "$1" in
   exitIfVersionNotInstalled "$version"
   selectVersion "$version"
   ;;
---remove)
+--remove | -r)
   if [ -z "${2:-}" ]; then
     echo "Usage: $0 --remove <version1> <version2> <version3>..."
     exit 1
@@ -1277,7 +1277,7 @@ case "$1" in
     fi
   fi
   ;;
---install)
+--install | -i)
   if [ -n "${2:-}" ]; then
     # Install specific version if provided
     version="$2"
@@ -1297,10 +1297,10 @@ case "$1" in
     installCVM
   fi
   ;;
---uninstall)
+--uninstall | -I)
   uninstallCVM
   ;;
---update-script)
+--update-script | -s)
   updateScript
   ;;
 *)
