@@ -241,7 +241,8 @@ downloadAppImage() {
   mkdir -p "$DOWNLOADS_DIR"
   local localFilename="cursor-$version.AppImage"
   echo "Downloading Cursor $version (AppImage)..."
-  if wget --server-response -O "$DOWNLOADS_DIR/$localFilename" "$url" 2>&1 | grep -q "HTTP/.* 200"; then
+  # Capture server response to check HTTP status, but show progress
+  if wget --server-response -O "$DOWNLOADS_DIR/$localFilename" "$url" 2>&1 | tee /dev/stderr | grep -q "HTTP/.* 200"; then
     chmod +x "$DOWNLOADS_DIR/$localFilename"
     echo "Cursor $version downloaded to $DOWNLOADS_DIR/$localFilename"
   else
@@ -287,7 +288,8 @@ downloadRpm() {
   mkdir -p "$RPM_DIR"
   local localFilename="cursor-$version.rpm"
   echo "Downloading Cursor $version (RPM)..."
-  if wget --server-response -O "$RPM_DIR/$localFilename" "$url" 2>&1 | grep -q "HTTP/.* 200"; then
+  # Capture server response to check HTTP status, but show progress
+  if wget --server-response -O "$RPM_DIR/$localFilename" "$url" 2>&1 | tee /dev/stderr | grep -q "HTTP/.* 200"; then
     echo "Cursor $version downloaded to $RPM_DIR/$localFilename"
   else
     echo "Error: Failed to download Cursor $version (HTTP error or file not found)" >&2
@@ -382,7 +384,8 @@ downloadDeb() {
   mkdir -p "$DEB_DIR"
   local localFilename="cursor-$version.deb"
   echo "Downloading Cursor $version (DEB)..."
-  if wget --server-response -O "$DEB_DIR/$localFilename" "$url" 2>&1 | grep -q "HTTP/.* 200"; then
+  # Capture server response to check HTTP status, but show progress
+  if wget --server-response -O "$DEB_DIR/$localFilename" "$url" 2>&1 | tee /dev/stderr | grep -q "HTTP/.* 200"; then
     echo "Cursor $version downloaded to $DEB_DIR/$localFilename"
   else
     echo "Error: Failed to download Cursor $version (HTTP error or file not found)" >&2
@@ -547,10 +550,10 @@ isPackageDownloaded() {
     [ -f "$DOWNLOADS_DIR/cursor-$version.$extension" ]
     ;;
   rpm)
-    [ -f "$RPM_DIR/cursor-$version.$extension" ] && [ -d "$RPM_DIR/cursor-$version" ]
+    [ -f "$RPM_DIR/cursor-$version.$extension" ] || [ -d "$RPM_DIR/cursor-$version" ]
     ;;
   deb)
-    [ -f "$DEB_DIR/cursor-$version.$extension" ] && [ -d "$DEB_DIR/cursor-$version" ]
+    [ -f "$DEB_DIR/cursor-$version.$extension" ] || [ -d "$DEB_DIR/cursor-$version" ]
     ;;
   *)
     false
@@ -1282,8 +1285,31 @@ case "$1" in
     # Install specific version if provided
     version="$2"
     if ! isPackageDownloaded "$version"; then
-      echo "Error: Version $version is not downloaded. Please download it first with 'cvm --download $version'" >&2
-      exit 1
+      # Check if version is available for download
+      if ! getRemoteVersions | grep -q "^$version\$"; then
+        echo "Error: Version $version not found for download." >&2
+        exit 1
+      fi
+
+      # Ask for confirmation to download
+      echo "Version $version is not downloaded locally."
+      echo -n "Would you like to download it now? (y/N): "
+      read -r response
+      # Trim whitespace and convert to lowercase for more reliable matching
+      response=$(echo "$response" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+      case "$response" in
+      y | yes)
+        echo "Downloading Cursor $version..."
+        if ! downloadVersion "$version"; then
+          echo "Error: Failed to download Cursor $version" >&2
+          exit 1
+        fi
+        ;;
+      *)
+        echo "Installation cancelled. Please download the version first with 'cvm --download $version'"
+        exit 1
+        ;;
+      esac
     fi
     selectVersion "$version"
     echo "Cursor $version installed and activated."
