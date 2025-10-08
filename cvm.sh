@@ -32,7 +32,7 @@ trap 'printf "\nScript interrupted by user. Please remove any unfinished downloa
 #H#   --use <version>      Selects a locally available version
 #H#   --active             Shows the currently selected version
 #H#   --remove <version...>  Removes one or more locally available versions
-#H#   --install            Adds an alias `cursor` and downloads the latest version
+#H#   --install [<version>] Adds an alias `cursor` and installs the latest version or specified version
 #H#   --uninstall          Removes the Cursor version manager directory and alias
 #H#   --update-script      Updates the (cvm.sh) script to the latest version
 #H#   -v --version         Shows the current and latest versions for cvm.sh and Cursor
@@ -241,9 +241,14 @@ downloadAppImage() {
   mkdir -p "$DOWNLOADS_DIR"
   local localFilename="cursor-$version.AppImage"
   echo "Downloading Cursor $version (AppImage)..."
-  wget -O "$DOWNLOADS_DIR/$localFilename" "$url"
-  chmod +x "$DOWNLOADS_DIR/$localFilename"
-  echo "Cursor $version downloaded to $DOWNLOADS_DIR/$localFilename"
+  if wget --server-response -O "$DOWNLOADS_DIR/$localFilename" "$url" 2>&1 | grep -q "HTTP/.* 200"; then
+    chmod +x "$DOWNLOADS_DIR/$localFilename"
+    echo "Cursor $version downloaded to $DOWNLOADS_DIR/$localFilename"
+  else
+    echo "Error: Failed to download Cursor $version (HTTP error or file not found)" >&2
+    rm -f "$DOWNLOADS_DIR/$localFilename" # Clean up partial download
+    return 1
+  fi
 }
 
 selectAppImage() {
@@ -282,8 +287,13 @@ downloadRpm() {
   mkdir -p "$RPM_DIR"
   local localFilename="cursor-$version.rpm"
   echo "Downloading Cursor $version (RPM)..."
-  wget -O "$RPM_DIR/$localFilename" "$url"
-  echo "Cursor $version downloaded to $RPM_DIR/$localFilename"
+  if wget --server-response -O "$RPM_DIR/$localFilename" "$url" 2>&1 | grep -q "HTTP/.* 200"; then
+    echo "Cursor $version downloaded to $RPM_DIR/$localFilename"
+  else
+    echo "Error: Failed to download Cursor $version (HTTP error or file not found)" >&2
+    rm -f "$RPM_DIR/$localFilename" # Clean up partial download
+    return 1
+  fi
 }
 
 extractRpm() {
@@ -372,8 +382,13 @@ downloadDeb() {
   mkdir -p "$DEB_DIR"
   local localFilename="cursor-$version.deb"
   echo "Downloading Cursor $version (DEB)..."
-  wget -O "$DEB_DIR/$localFilename" "$url"
-  echo "Cursor $version downloaded to $DEB_DIR/$localFilename"
+  if wget --server-response -O "$DEB_DIR/$localFilename" "$url" 2>&1 | grep -q "HTTP/.* 200"; then
+    echo "Cursor $version downloaded to $DEB_DIR/$localFilename"
+  else
+    echo "Error: Failed to download Cursor $version (HTTP error or file not found)" >&2
+    rm -f "$DEB_DIR/$localFilename" # Clean up partial download
+    return 1
+  fi
 }
 
 extractDeb() {
@@ -753,71 +768,36 @@ EOF
 
 installCVM() {
   latestRemoteVersion=$(getLatestRemoteVersion)
+
+  if [ -z "$latestRemoteVersion" ]; then
+    echo "Error: Could not determine the latest Cursor version available for download" >&2
+    return 1
+  fi
+
   latestLocalVersion=$(getLatestLocalVersion)
   if [ "$latestRemoteVersion" != "$latestLocalVersion" ]; then
-    downloadVersion "$latestRemoteVersion"
+    if ! downloadVersion "$latestRemoteVersion"; then
+      echo "Error: Failed to download Cursor $latestRemoteVersion" >&2
+      return 1
+    fi
   fi
-  selectVersion "$latestRemoteVersion"
+
+  if ! selectVersion "$latestRemoteVersion"; then
+    echo "Error: Failed to select Cursor $latestRemoteVersion" >&2
+    return 1
+  fi
 
   echo "Cursor $latestRemoteVersion installed and activated."
 
   # Setup assets and create desktop entry
-  setupAssets
-  createDesktopEntry
+  if ! setupAssets; then
+    echo "Warning: Failed to setup assets, but continuing with installation" >&2
+  fi
+  if ! createDesktopEntry; then
+    echo "Warning: Failed to create desktop entry, but continuing with installation" >&2
+  fi
 
-  echo "Adding alias to your shell config..."
-  case "$(basename "$SHELL")" in
-  sh | dash)
-    if ! grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.profile"; then
-      echo "alias cursor='$CURSOR_DIR/active'" >>"$HOME/.profile"
-    fi
-    ;;
-  bash)
-    if ! grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.bashrc"; then
-      echo "alias cursor='$CURSOR_DIR/active'" >>"$HOME/.bashrc"
-    fi
-    ;;
-  zsh)
-    if ! grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.zshrc"; then
-      echo "alias cursor='$CURSOR_DIR/active'" >>"$HOME/.zshrc"
-    fi
-    ;;
-  fish)
-    if [ "$package_type" = "appimage" ]; then
-      # AppImage needs --no-sandbox flag for proper functioning
-      if [ ! -f "$HOME/.config/fish/functions/cursor.fish" ] || ! grep -q "function cursor" "$HOME/.config/fish/functions/cursor.fish"; then
-        mkdir -p "$HOME/.config/fish/functions"
-        {
-          echo "function cursor"
-          echo "    nohup $CURSOR_DIR/active \$argv --no-sandbox </dev/null >/dev/null 2>&1 &"
-          echo "    disown"
-          echo "end"
-        } >"$HOME/.config/fish/functions/cursor.fish"
-      fi
-    else
-      # RPM/DEB packages don't need special flags
-      if [ ! -f "$HOME/.config/fish/functions/cursor.fish" ] || ! grep -q "alias cursor" "$HOME/.config/fish/functions/cursor.fish"; then
-        mkdir -p "$HOME/.config/fish/functions"
-        echo "alias cursor='$CURSOR_DIR/active'" >"$HOME/.config/fish/functions/cursor.fish"
-      fi
-    fi
-    ;;
-  esac
-  echo "Alias added. You can now use 'cursor' to run Cursor."
-  case "$(basename "$SHELL")" in
-  sh | dash)
-    echo "Run '. ~/.profile' to apply the changes or restart your shell."
-    ;;
-  bash)
-    echo "Run 'source ~/.bashrc' to apply the changes or restart your shell."
-    ;;
-  zsh)
-    echo "Run 'source ~/.zshrc' to apply the changes or restart your shell."
-    ;;
-  fish)
-    echo "The cursor function has been added in ~/.config/fish/functions/cursor.fish. You can use it immediately."
-    ;;
-  esac
+  setupAlias
 }
 
 uninstallCVM() {
@@ -893,6 +873,62 @@ isShellSupported() {
     ;;
   *)
     return 1
+    ;;
+  esac
+}
+
+setupAlias() {
+  echo "Adding alias to your shell config..."
+  case "$(basename "$SHELL")" in
+  sh | dash)
+    if ! grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.profile"; then
+      echo "alias cursor='$CURSOR_DIR/active'" >>"$HOME/.profile"
+    fi
+    ;;
+  bash)
+    if ! grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.bashrc"; then
+      echo "alias cursor='$CURSOR_DIR/active'" >>"$HOME/.bashrc"
+    fi
+    ;;
+  zsh)
+    if ! grep -q "alias cursor='$CURSOR_DIR/active'" "$HOME/.zshrc"; then
+      echo "alias cursor='$CURSOR_DIR/active'" >>"$HOME/.zshrc"
+    fi
+    ;;
+  fish)
+    if [ "$package_type" = "appimage" ]; then
+      # AppImage needs --no-sandbox flag for proper functioning
+      if [ ! -f "$HOME/.config/fish/functions/cursor.fish" ] || ! grep -q "function cursor" "$HOME/.config/fish/functions/cursor.fish"; then
+        mkdir -p "$HOME/.config/fish/functions"
+        {
+          echo "function cursor"
+          echo "    nohup $CURSOR_DIR/active \$argv --no-sandbox </dev/null >/dev/null 2>&1 &"
+          echo "    disown"
+          echo "end"
+        } >"$HOME/.config/fish/functions/cursor.fish"
+      fi
+    else
+      # RPM/DEB packages don't need special flags
+      if [ ! -f "$HOME/.config/fish/functions/cursor.fish" ] || ! grep -q "alias cursor" "$HOME/.config/fish/functions/cursor.fish"; then
+        mkdir -p "$HOME/.config/fish/functions"
+        echo "alias cursor='$CURSOR_DIR/active'" >"$HOME/.config/fish/functions/cursor.fish"
+      fi
+    fi
+    ;;
+  esac
+  echo "Alias added. You can now use 'cursor' to run Cursor."
+  case "$(basename "$SHELL")" in
+  sh | dash)
+    echo "Run '. ~/.profile' to apply the changes or restart your shell."
+    ;;
+  bash)
+    echo "Run 'source ~/.bashrc' to apply the changes or restart your shell."
+    ;;
+  zsh)
+    echo "Run 'source ~/.zshrc' to apply the changes or restart your shell."
+    ;;
+  fish)
+    echo "The cursor function has been added in ~/.config/fish/functions/cursor.fish. You can use it immediately."
     ;;
   esac
 }
@@ -1242,7 +1278,24 @@ case "$1" in
   fi
   ;;
 --install)
-  installCVM
+  if [ -n "${2:-}" ]; then
+    # Install specific version if provided
+    version="$2"
+    if ! isPackageDownloaded "$version"; then
+      echo "Error: Version $version is not downloaded. Please download it first with 'cvm --download $version'" >&2
+      exit 1
+    fi
+    selectVersion "$version"
+    echo "Cursor $version installed and activated."
+    # Setup assets and create desktop entry
+    setupAssets >/dev/null 2>&1
+    createDesktopEntry >/dev/null 2>&1
+    echo "Setting up shell alias..."
+    setupAlias
+  else
+    # Install latest version (original behavior)
+    installCVM
+  fi
   ;;
 --uninstall)
   uninstallCVM
