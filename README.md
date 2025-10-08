@@ -37,7 +37,7 @@ eget dagimg-dot/cvm --to $HOME/.local/bin
 
 ```bash
 # Download and install to local bin
-curl -L -o $HOME/.local/bin/cvm https://github.com/dagimg-dot/cvm/releases/download/v1.2.1/cvm.sh
+curl -L -o $HOME/.local/bin/cvm https://github.com/dagimg-dot/cvm/releases/download/v1.2.2/cvm.sh
 chmod +x $HOME/.local/bin/cvm
 
 # Ensure ~/.local/bin is in your PATH
@@ -46,7 +46,7 @@ chmod +x $HOME/.local/bin/cvm
 ### Option 3: Use as Local Script
 
 ```bash
-curl -L -o cvm.sh https://github.com/dagimg-dot/cvm/releases/download/v1.2.1/cvm.sh
+curl -L -o cvm.sh https://github.com/dagimg-dot/cvm/releases/download/v1.2.2/cvm.sh
 chmod +x cvm.sh
 
 ./cvm.sh --help
