@@ -499,7 +499,7 @@ selectVersion() {
     ;;
   rpm)
     # For RPM, we need to extract first if not already extracted
-    local extract_dir="$DOWNLOADS_DIR/cursor-$version"
+    local extract_dir="$RPM_DIR/cursor-$version"
     if [ ! -d "$extract_dir" ]; then
       extractRpm "$version" || return 1
     fi
@@ -507,7 +507,7 @@ selectVersion() {
     ;;
   deb)
     # For DEB, we need to extract first if not already extracted
-    local extract_dir="$DOWNLOADS_DIR/cursor-$version"
+    local extract_dir="$DEB_DIR/cursor-$version"
     if [ ! -d "$extract_dir" ]; then
       extractDeb "$version" || return 1
     fi
