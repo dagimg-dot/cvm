@@ -1,4 +1,4 @@
-.PHONY: bump-version release
+.PHONY: bump-version release bump-and-release
 bump-version:
 	@echo "Bumping version to $(VERSION)"
 	@sed -i 's/CVM_VERSION=".*"/CVM_VERSION="$(VERSION)"/' cvm.sh
@@ -13,3 +13,5 @@ release:
 	@git tag v$(VERSION)
 	@git push origin v$(VERSION)
 	@echo "cvm version v$(VERSION) released"
+
+bump-and-release: bump-version release
