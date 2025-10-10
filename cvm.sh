@@ -241,14 +241,14 @@ downloadAppImage() {
   mkdir -p "$DOWNLOADS_DIR"
   local localFilename="cursor-$version.AppImage"
   echo "Downloading Cursor $version (AppImage)..."
-  # Capture server response to check HTTP status, but show progress
-  if wget --server-response -O "$DOWNLOADS_DIR/$localFilename" "$url" 2>&1 | tee /dev/stderr | grep -q "HTTP/.* 200"; then
+  # Download with progress bar
+  if wget --show-progress -q -O "$DOWNLOADS_DIR/$localFilename" "$url"; then
     chmod +x "$DOWNLOADS_DIR/$localFilename"
     echo "Cursor $version downloaded to $DOWNLOADS_DIR/$localFilename"
   else
-    echo "Error: Failed to download Cursor $version (HTTP error or file not found)" >&2
+    echo "Error: Download failed" >&2
     rm -f "$DOWNLOADS_DIR/$localFilename" # Clean up partial download
-    return 1
+    exit 1
   fi
 }
 
@@ -288,13 +288,13 @@ downloadRpm() {
   mkdir -p "$RPM_DIR"
   local localFilename="cursor-$version.rpm"
   echo "Downloading Cursor $version (RPM)..."
-  # Capture server response to check HTTP status, but show progress
-  if wget --server-response -O "$RPM_DIR/$localFilename" "$url" 2>&1 | tee /dev/stderr | grep -q "HTTP/.* 200"; then
+  # Download with progress bar
+  if wget --show-progress -q -O "$RPM_DIR/$localFilename" "$url"; then
     echo "Cursor $version downloaded to $RPM_DIR/$localFilename"
   else
-    echo "Error: Failed to download Cursor $version (HTTP error or file not found)" >&2
+    echo "Error: Download failed" >&2
     rm -f "$RPM_DIR/$localFilename" # Clean up partial download
-    return 1
+    exit 1
   fi
 }
 
@@ -384,13 +384,13 @@ downloadDeb() {
   mkdir -p "$DEB_DIR"
   local localFilename="cursor-$version.deb"
   echo "Downloading Cursor $version (DEB)..."
-  # Capture server response to check HTTP status, but show progress
-  if wget --server-response -O "$DEB_DIR/$localFilename" "$url" 2>&1 | tee /dev/stderr | grep -q "HTTP/.* 200"; then
+  # Download with progress bar
+  if wget --show-progress -q -O "$DEB_DIR/$localFilename" "$url"; then
     echo "Cursor $version downloaded to $DEB_DIR/$localFilename"
   else
-    echo "Error: Failed to download Cursor $version (HTTP error or file not found)" >&2
+    echo "Error: Download failed" >&2
     rm -f "$DEB_DIR/$localFilename" # Clean up partial download
-    return 1
+    exit 1
   fi
 }
 
@@ -1297,19 +1297,16 @@ case "$1" in
       read -r response
       # Trim whitespace and convert to lowercase for more reliable matching
       response=$(echo "$response" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
-      case "$response" in
-      y | yes)
+      if [[ "$response" == "y" || "$response" == "yes" ]]; then
         echo "Downloading Cursor $version..."
         if ! downloadVersion "$version"; then
           echo "Error: Failed to download Cursor $version" >&2
           exit 1
         fi
-        ;;
-      *)
+      else
         echo "Installation cancelled. Please download the version first with 'cvm --download $version'"
         exit 1
-        ;;
-      esac
+      fi
     fi
     selectVersion "$version"
     echo "Cursor $version installed and activated."
