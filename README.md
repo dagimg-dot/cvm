@@ -62,13 +62,13 @@ cvm.sh — Cursor version manager
 ██║     ██║   ██║██╔████╔██║
 ██║     ╚██╗ ██╔╝██║╚██╔╝██║
 ╚██████╗ ╚████╔╝ ██║ ╚═╝ ██║
- ╚═════╝  ╚═══╝  ╚═╝     ╚═╝
+╚═════╝  ╚═══╝  ╚═╝     ╚═╝
+
 
 Examples:
   cvm --version
   cvm --list-local
-  cvm --use 1.4.4
-  cvm --remove 1.2.3 1.3.0 1.4.0
+  cvm --use 1.7.43
 
 Notice*:
   Packages are downloaded from the official Cursor releases.
@@ -76,16 +76,16 @@ Notice*:
   The list of download sources can be found at https://github.com/oslook/cursor-ai-downloads
 
 Options:
-  --list-local         Lists locally available versions
-  --list-remote        Lists versions available for download
-  --download <version> Downloads a version
-  --update             Downloads and selects the latest version
-  --use <version>      Selects a locally available version
-  --active             Shows the currently selected version
-  --remove <version...>  Removes one or more locally available versions
-  --install            Adds an alias `cursor` and downloads the latest version
-  --uninstall          Removes the Cursor version manager directory and alias
-  --update-script      Updates the (cvm.sh) script to the latest version
+  -l --list-local      Lists locally available versions
+  -L --list-remote     Lists versions available for download
+  -d --download <version> Downloads a version
+  -u --update          Downloads and selects the latest version
+  -U --use <version>   Selects a locally available version
+  -a --active          Shows the currently selected version
+  -r --remove <version1> <version2> ...   Removes one or more locally available versions
+  -i --install [<version>] Adds an alias `cursor` and installs the latest version or specified version
+  -I --uninstall       Removes the Cursor version manager directory and alias
+  -s --update-script   Updates the (cvm.sh) script to the latest version
   -v --version         Shows the current and latest versions for cvm.sh and Cursor
   -h --help            Shows this message
 ```
@@ -186,14 +186,6 @@ sudo cvm --install
 # Recreate desktop entry
 cvm --install
 ```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ## 📄 License
 
