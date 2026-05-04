@@ -71,6 +71,59 @@ print_color() {
   printf "%b%s%b\n" "$color" "$text" "$NC"
 }
 
+ensureWritableDir() {
+  local dir="$1"
+  mkdir -p "$dir" 2>/dev/null || true
+  if [ ! -d "$dir" ] || [ ! -w "$dir" ]; then
+    echo "Error: Directory is not writable: $dir" >&2
+    echo "Hint: If you previously ran cvm with sudo, fix ownership (example): sudo chown -R \"$USER\":\"$USER\" \"$CURSOR_DIR\"" >&2
+    return 1
+  fi
+  return 0
+}
+
+getPlatformArchLabel() {
+  case "$platform" in
+  linux-x64)
+    echo "x64"
+    ;;
+  linux-arm64)
+    echo "arm64"
+    ;;
+  *)
+    echo "$platform"
+    ;;
+  esac
+}
+
+getDebArchLabel() {
+  case "$platform" in
+  linux-x64)
+    echo "amd64"
+    ;;
+  linux-arm64)
+    echo "arm64"
+    ;;
+  *)
+    echo "$platform"
+    ;;
+  esac
+}
+
+getRpmArchLabel() {
+  case "$platform" in
+  linux-x64)
+    echo "x86_64"
+    ;;
+  linux-arm64)
+    echo "aarch64"
+    ;;
+  *)
+    echo "$platform"
+    ;;
+  esac
+}
+
 getLatestScriptVersion() {
   # Fetch latest release version from GitHub API
   latest_version=$(wget -qO- "$GITHUB_API_URL" | jq -r '.tag_name' 2>/dev/null | sed 's/^v//')
@@ -167,34 +220,85 @@ constructAppImageUrl() {
   echo "$appimage_url"
 }
 
+# Strip Cursor-*.AppImage from the version-history AppImage URL to get the .../linux/{x64,arm64} base.
+# Uses global $platform (linux-x64 | linux-arm64) from getPlatform.
+stripLinuxAppImageBaseUrl() {
+  local appimage_url="$1"
+  local base_url
+
+  case "$platform" in
+  linux-x64)
+    base_url=${appimage_url%/Cursor-*-x86_64.AppImage}
+    ;;
+  linux-arm64)
+    base_url=${appimage_url%/Cursor-*-aarch64.AppImage}
+    ;;
+  *)
+    echo "Error: Unsupported platform for package URLs: $platform" >&2
+    return 1
+    ;;
+  esac
+
+  if [ -z "$base_url" ] || [ "$base_url" = "$appimage_url" ]; then
+    echo "Error: AppImage URL does not match expected pattern for $platform: $appimage_url" >&2
+    return 1
+  fi
+  echo "$base_url"
+}
+
 constructRpmUrl() {
   local appimage_url="$1"
   local version="$2"
-
-  # Extract base URL up to the platform part
-  # From: https://downloads.cursor.com/production/.../linux/x64/Cursor-X.Y.Z-x86_64.AppImage
-  # To:   https://downloads.cursor.com/production/.../linux/x64/rpm/x86_64/cursor-X.Y.Z.el8.x86_64.rpm
-
   local base_url
-  base_url=${appimage_url%/Cursor-*-x86_64.AppImage}
-  echo "${base_url}/rpm/x86_64/cursor-${version}.el8.x86_64.rpm"
+
+  # linux-x64:  .../linux/x64/rpm/x86_64/cursor-X.Y.Z.el8.x86_64.rpm
+  # linux-arm64: .../linux/arm64/rpm/aarch64/cursor-X.Y.Z.el8.aarch64.rpm
+  if ! base_url=$(stripLinuxAppImageBaseUrl "$appimage_url"); then
+    return 1
+  fi
+
+  case "$platform" in
+  linux-x64)
+    echo "${base_url}/rpm/x86_64/cursor-${version}.el8.x86_64.rpm"
+    ;;
+  linux-arm64)
+    echo "${base_url}/rpm/aarch64/cursor-${version}.el8.aarch64.rpm"
+    ;;
+  *)
+    echo "Error: internal: unexpected platform in constructRpmUrl: $platform" >&2
+    return 1
+    ;;
+  esac
 }
 
 constructDebUrl() {
   local appimage_url="$1"
   local version="$2"
+  local base_url deb_version deb_debarch
 
-  # Extract base URL up to the platform part
-  # From: https://downloads.cursor.com/production/.../linux/x64/Cursor-X.Y.Z-x86_64.AppImage
-  # To:   https://downloads.cursor.com/production/.../linux/x64/deb/amd64/cursor_X.Y.Z_amd64.deb
+  # linux-x64:  .../deb/amd64/cursor_X_Y_Z_amd64.deb
+  # linux-arm64: .../deb/arm64/deb/cursor_X.Y.Z_arm64.deb
+  if ! base_url=$(stripLinuxAppImageBaseUrl "$appimage_url"); then
+    return 1
+  fi
 
-  local base_url
-  base_url=${appimage_url%/Cursor-*-x86_64.AppImage}
-
-  # Convert version format: 1.7.39 -> 1.7.39 (underscore instead of dots for deb)
-  local deb_version
-  deb_version=$(echo "$version" | tr '.' '_')
-  echo "${base_url}/deb/amd64/cursor_${deb_version}_amd64.deb"
+  case "$platform" in
+  linux-x64)
+    deb_debarch=amd64
+    deb_version=$(echo "$version" | tr '.' '_')
+    echo "${base_url}/deb/${deb_debarch}/cursor_${deb_version}_${deb_debarch}.deb"
+    ;;
+  linux-arm64)
+    deb_debarch=arm64
+    # Cursor's arm64 .deb uses dotted version and an extra /deb/ segment.
+    deb_version="$version"
+    echo "${base_url}/deb/${deb_debarch}/deb/cursor_${deb_version}_${deb_debarch}.deb"
+    ;;
+  *)
+    echo "Error: internal: unexpected platform in constructDebUrl: $platform" >&2
+    return 1
+    ;;
+  esac
 }
 
 constructPackageUrl() {
@@ -238,15 +342,15 @@ downloadAppImage() {
     return 1
   fi
 
-  mkdir -p "$DOWNLOADS_DIR"
+  ensureWritableDir "$DOWNLOADS_DIR" || exit 1
   local localFilename="cursor-$version.AppImage"
-  echo "Downloading Cursor $version (AppImage)..."
+  echo "Downloading Cursor $version (AppImage/$(getPlatformArchLabel))..."
   # Download with progress bar
   if wget --show-progress -q -O "$DOWNLOADS_DIR/$localFilename" "$url"; then
     chmod +x "$DOWNLOADS_DIR/$localFilename"
     echo "Cursor $version downloaded to $DOWNLOADS_DIR/$localFilename"
   else
-    echo "Error: Download failed" >&2
+    echo "Error: Download failed (URL: $url)" >&2
     rm -f "$DOWNLOADS_DIR/$localFilename" # Clean up partial download
     exit 1
   fi
@@ -285,14 +389,14 @@ downloadRpm() {
     return 1
   fi
 
-  mkdir -p "$RPM_DIR"
+  ensureWritableDir "$RPM_DIR" || exit 1
   local localFilename="cursor-$version.rpm"
-  echo "Downloading Cursor $version (RPM)..."
+  echo "Downloading Cursor $version (RPM/$(getRpmArchLabel))..."
   # Download with progress bar
   if wget --show-progress -q -O "$RPM_DIR/$localFilename" "$url"; then
     echo "Cursor $version downloaded to $RPM_DIR/$localFilename"
   else
-    echo "Error: Download failed" >&2
+    echo "Error: Download failed (URL: $url)" >&2
     rm -f "$RPM_DIR/$localFilename" # Clean up partial download
     exit 1
   fi
@@ -381,14 +485,14 @@ downloadDeb() {
     return 1
   fi
 
-  mkdir -p "$DEB_DIR"
+  ensureWritableDir "$DEB_DIR" || exit 1
   local localFilename="cursor-$version.deb"
-  echo "Downloading Cursor $version (DEB)..."
+  echo "Downloading Cursor $version (DEB/$(getDebArchLabel))..."
   # Download with progress bar
   if wget --show-progress -q -O "$DEB_DIR/$localFilename" "$url"; then
     echo "Cursor $version downloaded to $DEB_DIR/$localFilename"
   else
-    echo "Error: Download failed" >&2
+    echo "Error: Download failed (URL: $url)" >&2
     rm -f "$DEB_DIR/$localFilename" # Clean up partial download
     exit 1
   fi
@@ -554,6 +658,24 @@ isPackageDownloaded() {
     ;;
   deb)
     [ -f "$DEB_DIR/cursor-$version.$extension" ] || [ -d "$DEB_DIR/cursor-$version" ]
+    ;;
+  *)
+    false
+    ;;
+  esac
+}
+
+# True if the package-type-specific directory has any cvm-managed installs.
+hasAnyLocalPackage() {
+  case "$package_type" in
+  appimage)
+    [ -d "$DOWNLOADS_DIR" ] && [ -n "$(ls -A "$DOWNLOADS_DIR" 2>/dev/null)" ]
+    ;;
+  rpm)
+    [ -d "$RPM_DIR" ] && [ -n "$(ls -A "$RPM_DIR" 2>/dev/null)" ]
+    ;;
+  deb)
+    [ -d "$DEB_DIR" ] && [ -n "$(ls -A "$DEB_DIR" 2>/dev/null)" ]
     ;;
   *)
     false
@@ -937,7 +1059,7 @@ setupAlias() {
 }
 
 cleanupAppImages() {
-  for build_file in "$DOWNLOADS_DIR"/cursor-*-build-*-x86_64.AppImage; do
+  for build_file in "$DOWNLOADS_DIR"/cursor-*-build-*-x86_64.AppImage "$DOWNLOADS_DIR"/cursor-*-build-*-aarch64.AppImage; do
     # Skip if no files match the pattern
     [ -e "$build_file" ] || continue
 
@@ -1083,7 +1205,7 @@ case "$1" in
 --update | -u)
   latestRemoteVersion=$(getLatestRemoteVersion)
 
-  if [ ! -d "$DOWNLOADS_DIR" ] || [ -z "$(ls -A "$DOWNLOADS_DIR" 2>/dev/null)" ]; then
+  if ! hasAnyLocalPackage; then
     echo "No Cursor versions found locally."
     echo "Downloading latest version $latestRemoteVersion..."
     downloadVersion "$latestRemoteVersion"
@@ -1092,10 +1214,15 @@ case "$1" in
     exit 0
   fi
 
-  activeVersion=$(getActiveVersion 2>/dev/null || echo "None")
+  activeVersionFull=$(getActiveVersion 2>/dev/null || echo "None")
+  if [[ "$activeVersionFull" =~ ([0-9.]+) ]]; then
+    activeVersion="${BASH_REMATCH[1]}"
+  else
+    activeVersion="$activeVersionFull"
+  fi
 
   if [ "$latestRemoteVersion" = "$activeVersion" ]; then
-    print_color "$GREEN" "You are already running the latest version: $activeVersion"
+    print_color "$GREEN" "You are already running the latest version: $activeVersionFull"
     exit 0
   fi
 
